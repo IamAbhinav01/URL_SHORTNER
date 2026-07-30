@@ -1,68 +1,85 @@
-const { loggerConfig } = require('../config/');
+const { loggerConfig, redisConfig } = require('../config');
 const { ErrorHandler } = require('../errors');
 const { generateShortCode } = require('../utils/utilitiies');
 const { UrlMapping } = require('../models');
-const { redisConfig } = require('../config');
-const urlmapping = require('../models/urlmapping');
-const { where } = require('sequelize');
+const { StatusCodes } = require('http-status-codes');
 
-const CACHE_TTL_SECONDS = 86400;
+const CACHE_TTL_SECONDS = 86400; // 24 hours
 
 class UrlShortner {
-  static async createShortUrl(orginalUrl) {
+  static async createShortUrl(originalUrl, ttlDays = 30) {
     let tries = 0;
     const maxAttempts = 5;
+    const expiresAt = new Date(Date.now() + ttlDays * 24 * 60 * 60 * 1000);
+
     while (tries < maxAttempts) {
-      shortCode = generateShortCode(6);
+      const shortCode = generateShortCode(6);
       try {
-        await UrlMapping.create({ shortCode, orginalUrl });
+        await UrlMapping.create({
+          shortCode,
+          originalUrl,
+          expiresAt,
+        });
+
         await redisConfig.client.setEx(
           `url:${shortCode}`,
           CACHE_TTL_SECONDS,
-          orginalUrl
+          originalUrl
         );
+
         return shortCode;
       } catch (error) {
-        loggerConfig.error('Error while creating shortUrl');
+        loggerConfig.error(`Error while creating shortUrl: ${error.message}`);
         if (error.name === 'SequelizeUniqueConstraintError') {
           tries++;
           continue;
         }
         throw error;
       }
-      throw new ErrorHandler(
-        'Failed to generate a unique short code after maximum retries'
-      );
     }
+
+    throw new ErrorHandler(
+      'Failed to generate a unique short code after maximum retries',
+      StatusCodes.INTERNAL_SERVER_ERROR
+    );
   }
 
-  static async resolverUrl(shortCode) {
-    const cachedUrl = await redisConfig.get(`url:${shortCode}`);
+  static async resolveUrl(shortCode) {
+    const cachedUrl = await redisConfig.client.get(`url:${shortCode}`);
     if (cachedUrl) {
-      // ithu redis il check cheyum
-      this.incrementClicks(shortCode).catch(console.error);
+      this.incrementClicks(shortCode).catch((err) =>
+        loggerConfig.error(`Error incrementing clicks: ${err.message}`)
+      );
       return cachedUrl;
     }
-    //eni dbyil  nokanam
-    const mapping = await urlmapping.findOne({
+
+    const mapping = await UrlMapping.findOne({
       where: { shortCode },
     });
 
     if (!mapping) return null;
 
-    //add to redis
+    // Check expiration
+    if (mapping.expiresAt && new Date(mapping.expiresAt) < new Date()) {
+      return null;
+    }
+
+    // Add to Redis cache
     await redisConfig.client.setEx(
       `url:${shortCode}`,
       CACHE_TTL_SECONDS,
-      mapping.orginalUrl
+      mapping.originalUrl
     );
-    this.incrementClicks(shortCode).catch(console.error);
 
-    return mapping.orginalUrl;
+    this.incrementClicks(shortCode).catch((err) =>
+      loggerConfig.error(`Error incrementing clicks: ${err.message}`)
+    );
+
+    return mapping.originalUrl;
   }
 
   static async incrementClicks(shortCode) {
-    await urlmapping.increment('clickCount', {
+    await UrlMapping.increment('clickCount', {
       by: 1,
       where: { shortCode },
     });
@@ -70,3 +87,4 @@ class UrlShortner {
 }
 
 module.exports = { UrlShortner };
+

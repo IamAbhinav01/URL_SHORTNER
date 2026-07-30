@@ -2,7 +2,7 @@ const crypto = require('crypto');
 const { BASE62_ALPHABET } = require('../config/server.config');
 
 const encodeBase62 = (num) => {
-  if (num == 0n) return BASE62_ALPHABET[0];
+  if (num === 0n) return BASE62_ALPHABET[0];
 
   let result = '';
   let current = BigInt(num);
