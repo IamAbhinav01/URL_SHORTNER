@@ -1,4 +1,3 @@
-const { BIGINT } = require('sequelize');
 const crypto = require('crypto');
 const { BASE62_ALPHABET } = require('../config/server.config');
 
@@ -6,7 +5,8 @@ const encodeBase62 = (num) => {
   if (num == 0n) return BASE62_ALPHABET[0];
 
   let result = '';
-  let current = BIGINT(num);
+  let current = BigInt(num);
+
   const base = 62n;
 
   while (current > 0n) {

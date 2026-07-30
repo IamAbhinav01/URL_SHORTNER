@@ -1,12 +1,11 @@
 const CrudRepository = require('./operations.repositories');
 const { UrlMapping } = require('../models');
-const {loggerConfig} = require('../config')
+const { loggerConfig } = require('../config');
 
-
-class UrlRepository{
-    constructor(){
-        super(UrlMapping);
-    }
+class UrlRepository extends CrudRepository {
+  constructor() {
+    super(UrlMapping);
+  }
 }
 
-module.exports = {UrlRepository}
+module.exports = { UrlRepository };
