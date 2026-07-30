@@ -15,7 +15,8 @@ const createRestApi = (req, res) => {
         });
     }
     const shortCode = await UrlService.UrlShortner.createShortUrl(orginalUrl)
-    loggerConfig.info(``)
+    loggerConfig.info(`successfully send the the short ode to service layer`)
+    return res.status(StatusCodes.ACCEPTED).json({...succesResponse,message:'sucessfully send the data',data:shortCode})
   } catch (error) {
     loggerConfig.error(`error occured while restAPI : ${error}`);
     return res.status(StatusCodes.BAD_REQUEST).json({
@@ -29,3 +30,6 @@ const createRestApi = (req, res) => {
     });
   }
 };
+module.exports = {
+    createRestApi,
+}
