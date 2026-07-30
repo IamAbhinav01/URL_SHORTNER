@@ -1,0 +1,4 @@
+.env
+node_modules
+GUIDE.md
+src\config\config.json

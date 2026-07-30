@@ -1,0 +1,29 @@
+{
+  "name": "url_shortner",
+  "version": "1.0.0",
+  "description": "a system design cocept for shorting urls",
+  "keywords": [
+    "system-design",
+    "url-shortner"
+  ],
+  "homepage": "https://github.com/IamAbhinav01/URL_SHORTNER#readme",
+  "bugs": {
+    "url": "https://github.com/IamAbhinav01/URL_SHORTNER/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/IamAbhinav01/URL_SHORTNER.git"
+  },
+  "license": "ISC",
+  "author": "Abhinav Sunil",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "mysql2": "^3.23.2",
+    "sequelize": "^6.37.8"
+  }
+}
