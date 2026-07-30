@@ -1,35 +1,76 @@
-const {
-  errorResponse,
-  succesResponse,
-} = require('../utils/response_formatter');
-const { UrlService } = require('../services');
-const { loggerConfig } = require('../config');
 const { StatusCodes } = require('http-status-codes');
+const { UrlShortner } = require('../services/url_Shortner.service');
+const { UrlMapping } = require('../models');
+const { ErrorHandler } = require('../errors');
+const { serverConfig } = require('../config');
 
-const createRestApi = (req, res) => {
+const createShortUrl = async (req, res, next) => {
   try {
-    const {orginalUrl} = req.body
-    if(!orginalUrl || typeof orginalUrl !== 'string'){
-        return res.status(StatusCodes.BAD_REQUEST).json({
-            error:"Valid Orginal Url required"
-        });
-    }
-    const shortCode = await UrlService.UrlShortner.createShortUrl(orginalUrl)
-    loggerConfig.info(`successfully send the the short ode to service layer`)
-    return res.status(StatusCodes.ACCEPTED).json({...succesResponse,message:'sucessfully send the data',data:shortCode})
-  } catch (error) {
-    loggerConfig.error(`error occured while restAPI : ${error}`);
-    return res.status(StatusCodes.BAD_REQUEST).json({
-      ...errorResponse,
-      message: error.message || 'something went wrong',
-      error: {
-        statusCode: StatusCodes.BAD_REQUEST,
-        message: error.message || 'Something went wrong',
-        info: error.info || error.message || '',
+    const { originalUrl, ttlDays } = req.body;
+    const shortCode = await UrlShortner.createShortUrl(originalUrl, ttlDays);
+
+    const baseUrl = process.env.BASE_URL || `http://localhost:${serverConfig.PORT || 3000}`;
+    const shortUrl = `${baseUrl}/${shortCode}`;
+
+    return res.status(StatusCodes.CREATED).json({
+      success: true,
+      message: 'URL shortened successfully',
+      data: {
+        shortCode,
+        shortUrl,
+        originalUrl,
       },
+      error: {},
     });
+  } catch (error) {
+    next(error);
   }
 };
+
+const redirectUrl = async (req, res, next) => {
+  try {
+    const { shortCode } = req.params;
+    const originalUrl = await UrlShortner.resolveUrl(shortCode);
+
+    if (!originalUrl) {
+      throw new ErrorHandler('Short URL not found or has expired', StatusCodes.NOT_FOUND);
+    }
+
+    return res.redirect(StatusCodes.MOVED_TEMPORARILY, originalUrl);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getAnalytics = async (req, res, next) => {
+  try {
+    const { shortCode } = req.params;
+    const mapping = await UrlMapping.findOne({ where: { shortCode } });
+
+    if (!mapping) {
+      throw new ErrorHandler('Short URL not found', StatusCodes.NOT_FOUND);
+    }
+
+    return res.status(StatusCodes.OK).json({
+      success: true,
+      message: 'Analytics retrieved successfully',
+      data: {
+        shortCode: mapping.shortCode,
+        originalUrl: mapping.originalUrl,
+        clickCount: mapping.clickCount,
+        expiresAt: mapping.expiresAt,
+        createdAt: mapping.createdAt,
+      },
+      error: {},
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
-    createRestApi,
-}
+  createShortUrl,
+  createRestApi: createShortUrl,
+  redirectUrl,
+  getAnalytics,
+};
